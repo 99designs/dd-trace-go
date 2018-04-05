@@ -80,42 +80,33 @@ func TestPayloadDecode(t *testing.T) {
 	}
 }
 
-func BenchmarkPayloadThroughput10K(b *testing.B) {
-	s := newBasicSpan("X")
-	s.Meta["key"] = strings.Repeat("X", 10000)
-	benchmarkPayloadThroughput(b, s)
+func BenchmarkPayloadThroughput(b *testing.B) {
+	b.Run("10K", benchmarkPayloadThroughput(1))
+	b.Run("100K", benchmarkPayloadThroughput(10))
+	b.Run("1MB", benchmarkPayloadThroughput(100))
 }
 
-func BenchmarkPayloadThroughput100K(b *testing.B) {
-	s := newBasicSpan("X")
-	s.Meta["key"] = strings.Repeat("X", 10000)
-	trace := make([]*span, 10)
-	for i := 0; i < 10; i++ {
-		trace[i] = s
-	}
-	benchmarkPayloadThroughput(b, trace)
-}
-
-func BenchmarkPayloadThroughput1MB(b *testing.B) {
-	s := newBasicSpan("X")
-	s.Meta["key"] = strings.Repeat("X", 10000)
-	trace := make([]*span, 100)
-	for i := 0; i < 10; i++ {
-		trace[i] = s
-	}
-	benchmarkPayloadThroughput(b, trace)
-}
-
-func benchmarkPayloadThroughput(b *testing.B, s interface{}) {
-	p := newPayload()
-	pkg := new(bytes.Buffer)
-	if err := codec.NewEncoder(pkg, &codec.MsgpackHandle{}).Encode(s); err != nil {
-		b.Fatal(err)
-	}
-	b.ReportAllocs()
-	b.SetBytes(int64(pkg.Len()))
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		p.push(s)
+// benchmarkPayloadThroughput benchmarks the throughput of the payload by subsequently
+// pushing a trace containing count spans of approximately 10KB in size each.
+func benchmarkPayloadThroughput(count int) func(*testing.B) {
+	return func(b *testing.B) {
+		p := newPayload()
+		s := newBasicSpan("X")
+		s.Meta["key"] = strings.Repeat("X", 10*1024)
+		trace := make([]*span, count)
+		for i := 0; i < count; i++ {
+			trace[i] = s
+		}
+		// get the size of the trace in bytes
+		pkg := new(bytes.Buffer)
+		if err := codec.NewEncoder(pkg, &codec.MsgpackHandle{}).Encode(trace); err != nil {
+			b.Fatal(err)
+		}
+		b.SetBytes(int64(pkg.Len()))
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			p.push(trace)
+		}
 	}
 }

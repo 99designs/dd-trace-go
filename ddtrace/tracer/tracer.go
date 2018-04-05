@@ -94,7 +94,7 @@ func Inject(ctx ddtrace.SpanContext, carrier interface{}) error {
 
 const (
 	// traceBufferSize is the buffer size of the trace channel.
-	traceBufferSize = 200
+	traceBufferSize = 1000
 
 	// errorBufferSize is the buffer size of the error channel.
 	errorBufferSize = 200
@@ -165,8 +165,6 @@ func (t *tracer) pushTrace(trace []*span) {
 	select {
 	case t.traceBuffer <- trace:
 	default:
-		// given the high throughput support of the payload (~700MBps) this
-		// should never happen, nevertheless we should know if it ever does.
 		t.pushError(&dataLossError{
 			context: errors.New("trace buffer full, dropping trace"),
 			count:   len(trace),

@@ -55,6 +55,7 @@ func newHTTPTransport(addr string) *httpTransport {
 		"Datadog-Meta-Lang-Version":     strings.TrimPrefix(runtime.Version(), "go"),
 		"Datadog-Meta-Lang-Interpreter": runtime.Compiler + "-" + runtime.GOARCH + "-" + runtime.GOOS,
 		"Datadog-Meta-Tracer-Version":   tracerVersion,
+		"Content-Type":                  "application/msgpack",
 	}
 	host, port, _ := net.SplitHostPort(addr)
 	if host == "" {
@@ -98,15 +99,15 @@ func (t *httpTransport) send(p *payload) error {
 		req.Header.Set(header, value)
 	}
 	req.Header.Set(traceCountHeader, strconv.Itoa(p.itemCount()))
-	req.Header.Set("Content-Type", "application/msgpack")
 	req.Header.Set("Content-Length", strconv.Itoa(p.size()))
 	response, err := t.client.Do(req)
 	if err != nil {
 		return err
 	}
 	defer response.Body.Close()
-
 	if code := response.StatusCode; code >= 400 {
+		// error, check the body for context information and
+		// return a nice error.
 		msg := make([]byte, 1000)
 		n, _ := response.Body.Read(msg)
 		txt := http.StatusText(code)
@@ -115,5 +116,5 @@ func (t *httpTransport) send(p *payload) error {
 		}
 		return fmt.Errorf("%s", txt)
 	}
-	return err
+	return nil
 }
