@@ -52,6 +52,10 @@ func (s *Span) BaggageItem(key string) string {
 // the given `key`.
 func (s *Span) SetTag(key string, value interface{}) ot.Span {
 	switch key {
+	case OperationType:
+		s.Span.Lock()
+		defer s.Span.Unlock()
+		s.Span.Name = fmt.Sprint(value)
 	case ServiceName:
 		s.Span.Lock()
 		defer s.Span.Unlock()
@@ -96,7 +100,7 @@ func (s *Span) SetOperationName(operationName string) ot.Span {
 	s.Span.Lock()
 	defer s.Span.Unlock()
 
-	s.Span.Name = operationName
+	s.Span.Resource = operationName
 	return s
 }
 
@@ -132,7 +136,8 @@ func (s *Span) Log(data ot.LogData) {
 // NewSpan is the OpenTracing Span constructor
 func NewSpan(operationName string) *Span {
 	span := &ddtrace.Span{
-		Name: operationName,
+		Name: "unknown",
+		Resource: operationName,
 	}
 
 	otSpan := &Span{
